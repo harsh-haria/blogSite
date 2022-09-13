@@ -2,7 +2,8 @@ const fs = require("fs");
 const path = require("path");
 
 const { validationResult } = require("express-validator");
-const post = require("../models/post");
+
+const io = require("../socket");
 
 const Post = require("../models/post");
 const User = require("../models/user");
@@ -18,8 +19,10 @@ exports.getPosts = async (req, res, next) => {
     const totalItems = await Post.find().countDocuments();
     const posts = await Post.find()
       .populate("creator")
+      .sort({ createdAt: -1 })
       .skip((currentPage - 1) * perPage)
       .limit(perPage);
+
     res.status(200).json({
       message: "Posts fetched successfully!",
       posts: posts,
@@ -83,7 +86,11 @@ exports.createPost = async (req, res, next) => {
     creator = user;
     user.posts.push(post);
     result = await user.save();
-
+    io.getIO().emit("posts", {
+      //posts can be anything here. it is an event name that can be used on frontend
+      action: "create", //this data can be anything. action is a keyword we are using. can be anything again!
+      post: { ...post._doc, creator: { _id: req.userId, name: user.name } },
+    });
     res.status(201).json({
       message: "Post Created Successfully!",
       post: post,
@@ -121,13 +128,13 @@ exports.updatePost = async (req, res, next) => {
   }
 
   try {
-    const post = await Post.findById(postId);
+    const post = await Post.findById(postId).populate("creator");
     if (!post) {
       const error = new Error("No post found!");
       error.statusCode = 404;
       throw error;
     }
-    if (post.creator.toString() !== req.userId) {
+    if (post.creator._id.toString() !== req.userId) {
       const error = new Error("Not Authorized");
       error.statusCode = 403;
       throw error;
@@ -139,6 +146,7 @@ exports.updatePost = async (req, res, next) => {
     post.imageUrl = imageUrl;
     post.content = content;
     const postSaver = await post.save();
+    io.getIO().emit("posts", { action: "update", post: postSaver });
     res
       .status(200)
       .json({ message: "Post Edited Successfully!", post: postSaver });
@@ -152,23 +160,24 @@ exports.updatePost = async (req, res, next) => {
 
 exports.deletePost = async (req, res, next) => {
   const postId = req.params.postId;
-  const post = await Post.findById(postId);
-  if (!post) {
-    const error = new Error("No post found!");
-    error.statusCode = 404;
-    throw error;
-  }
-  if (post.creator.toString() !== req.userId) {
-    const error = new Error("Not Authorized");
-    error.statusCode = 403;
-    throw error;
-  }
-  clearImage(post.imageUrl);
   try {
+    const post = await Post.findById(postId);
+    if (!post) {
+      const error = new Error("No post found!");
+      error.statusCode = 404;
+      throw error;
+    }
+    if (post.creator.toString() !== req.userId) {
+      const error = new Error("Not Authorized");
+      error.statusCode = 403;
+      throw error;
+    }
+    clearImage(post.imageUrl);
     const result1 = await Post.findByIdAndRemove(postId);
     const user = await User.findById(req.userId);
     user.posts.pull(postId);
     const userSaver = await user.save();
+    io.getIO().emit("posts", { action: "delete", post: postId });
     res.status(200).json({ message: "The post was deleted!" });
   } catch (err) {
     if (!err.statusCode) {

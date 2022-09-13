@@ -68,6 +68,10 @@ mongoose
   .connect(secretUrls.MongooseUri)
   .then((result) => {
     console.log("Connected!");
-    app.listen(8080);
+    const server = app.listen(8080);
+    const io = require("./socket.js").init(server);
+    io.on("connection", (socket) => {
+      console.log("Client Connected!");
+    });
   })
   .catch((err) => console.log(err));

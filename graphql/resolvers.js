@@ -14,6 +14,8 @@ module.exports = {
         }
         if (errors.length > 0) {
             const error = new Error('Invalid inputs');
+            error.data = errors;
+            error.code = 422;
             throw error;
         }
         const exisitngUser = await User.findOne({ email: userInput.email });

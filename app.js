@@ -13,6 +13,7 @@ const feedRoutes = require("./routes/feed");
 const authRoutes = require("./routes/auth");
 
 const MongooseUri = process.env.MONGO_URI;
+const Port = process.env.PORT;
 
 const app = express();
 
@@ -69,8 +70,8 @@ app.use((error, req, res, next) => {
 mongoose
   .connect(MongooseUri)
   .then((result) => {
-    console.log("Connected!");
-    const server = app.listen(8080);
+    console.log("Connected to MongoDB");
+    const server = app.listen(Port);
     const io = require("./socket.js").init(server);
     io.on("connection", (socket) => {
       console.log("Client Connected!");

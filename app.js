@@ -1,16 +1,18 @@
+require("dotenv").config();
+
 const path = require("path");
 
 const express = require("express");
 const bodyParser = require("body-parser");
 
-const feedRoutes = require("./routes/feed");
-const authRoutes = require("./routes/auth");
-
 const mongoose = require("mongoose");
 const multer = require("multer");
 const { v4: uuidv4 } = require("uuid");
 
-const secretUrls = require("./util/database");
+const feedRoutes = require("./routes/feed");
+const authRoutes = require("./routes/auth");
+
+const MongooseUri = process.env.MONGO_URI;
 
 const app = express();
 
@@ -65,7 +67,7 @@ app.use((error, req, res, next) => {
 });
 
 mongoose
-  .connect(secretUrls.MongooseUri)
+  .connect(MongooseUri)
   .then((result) => {
     console.log("Connected!");
     const server = app.listen(8080);
